@@ -45,6 +45,16 @@ data "aws_iam_policy_document" "lambda" {
     resources = ["*"]
   }
   statement {
+    sid    = "AllowGetDeployment"
+    effect = "Allow"
+
+    actions = [
+      "codedeploy:GetDeployment",
+    ]
+
+    resources = ["*"]
+  }
+  statement {
     sid    = "AllowManagingEventRulesAndTargets"
     effect = "Allow"
 

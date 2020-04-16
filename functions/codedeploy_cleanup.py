@@ -45,6 +45,10 @@ def lambda_handler(event, context):
             LOGGER.warning("Deployment Status isn't 'FAILED'. Nothing to do.")
             sys.exit()
 
+        blue_green_deployment = check_blue_green(deployment_id)
+        if not blue_green_deployment:
+            sys.exit()
+
         asg_exists = check_auto_scaling_group(deployment_group, deployment_id)
         if not asg_exists:
             sys.exit()
@@ -54,6 +58,29 @@ def lambda_handler(event, context):
         cw_rule, cw_rule_arn = create_cloudwatch_rule(deployment_group, deployment_id, keep_alive)
         put_cloudwatch_target(deployment_group, deployment_id, lambda_arn, cw_rule)
         add_lambda_permission(cw_rule_arn, lambda_arn, deployment_group, deployment_id)
+
+def check_blue_green(deployment_id):
+    """
+    Checks if the failed deployment was a blue green deployment.
+    We don't want to remove an auto scaling group just because an in-place deployment
+    failed.
+
+    :type deployment_id: str
+    :param deployment_id: CodeDeploy Deployment Id
+    :return: Boolean resulting from check
+    :rtype: bool
+    """
+
+    client = boto3.client('codedeploy')
+    response = client.get_deployment(deploymentId=deployment_id)
+    if response['ResponseMetadata']['HTTPStatusCode'] != 200:
+        raise Exception(f'ERROR {response}')
+    elif response['deploymentInfo']['deploymentStyle']['deploymentType'] == 'BLUE_GREEN':
+        LOGGER.info('Deployment type is BLUE_GREEN')
+        return True
+    else:
+        LOGGER.error('Deployment type is not BLUE_GREEN')
+        return False
 
 
 def check_auto_scaling_group(deployment_group, deployment_id):
